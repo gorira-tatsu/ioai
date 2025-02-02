@@ -8,32 +8,32 @@ from xgboost import XGBClassifier
 testdf = pd.read_csv("../data/test.csv")
 traindf = pd.read_csv("../data/train.csv")
 
-droped_train = traindf.drop(columns=[
+dropped_train = traindf.drop(columns=[
     "id",
     "CustomerId",
     "Surname",
 ], axis=1)
 
-droped_train.replace({"Geography": {"France": 0, "Germany": 1, "Spain": 2}}, inplace=True)
-droped_train.replace({"Gender": {"Male": 0, "Female": 1}}, inplace=True)
+dropped_train.replace({"Geography": {"France": 0, "Germany": 1, "Spain": 2}}, inplace=True)
+dropped_train.replace({"Gender": {"Male": 0, "Female": 1}}, inplace=True)
 
-droped_train["IsZeroBalance"] = droped_train["Balance"].apply(lambda x: 1 if x == 0 else 0)
-droped_train["MiddleAge"] = droped_train["Age"].apply(lambda x: 1 if 45 <= x <= 65 else 0)
+dropped_train["IsZeroBalance"] = dropped_train["Balance"].apply(lambda x: 1 if x == 0 else 0)
+dropped_train["MiddleAge"] = dropped_train["Age"].apply(lambda x: 1 if 45 <= x <= 65 else 0)
 
-droped_test = testdf.drop(columns=[
+dropped_test = testdf.drop(columns=[
     "id",
     "CustomerId",
     "Surname",
 ], axis=1)
 
-droped_test.replace({"Geography": {"France": 0, "Germany": 1, "Spain": 2}}, inplace=True)
-droped_test.replace({"Gender": {"Male": 0, "Female": 1}}, inplace=True)
+dropped_test.replace({"Geography": {"France": 0, "Germany": 1, "Spain": 2}}, inplace=True)
+dropped_test.replace({"Gender": {"Male": 0, "Female": 1}}, inplace=True)
 
-droped_test["IsZeroBalance"] = droped_test["Balance"].apply(lambda x: 1 if x == 0 else 0)
-droped_test["MiddleAge"] = droped_test["Age"].apply(lambda x: 1 if 45 <= x <= 65 else 0)
+dropped_test["IsZeroBalance"] = dropped_test["Balance"].apply(lambda x: 1 if x == 0 else 0)
+dropped_test["MiddleAge"] = dropped_test["Age"].apply(lambda x: 1 if 45 <= x <= 65 else 0)
 
-X = droped_train.drop("Exited", axis=1)
-y = droped_train["Exited"]
+X = dropped_train.drop("Exited", axis=1)
+y = dropped_train["Exited"]
 
 def objective(trial):
     learning_rate = trial.suggest_float("learning_rate", 1e-3, 1e-1, log=True)
@@ -86,7 +86,7 @@ best_model = XGBClassifier(
 )
 
 best_model.fit(X, y)
-predictions = best_model.predict_proba(droped_test)[:, 1]
+predictions = best_model.predict_proba(dropped_test)[:, 1]
 
 submission = pd.DataFrame({'Exited': predictions})
 submission.to_csv("submission.csv", index=False)
