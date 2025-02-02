@@ -53,7 +53,6 @@ def objective(trial):
         min_child_weight=min_child_weight,
         gamma=gamma,
         objective='binary:logistic',
-        use_label_encoder=False,
         eval_metric="logloss"
     )
 
@@ -82,7 +81,6 @@ best_model = XGBClassifier(
     min_child_weight=best_params["min_child_weight"],
     gamma=best_params["gamma"],
     objective='binary:logistic',
-    use_label_encoder=False,
     eval_metric="logloss"
 )
 
