@@ -58,7 +58,8 @@ def objective(trial):
     )
 
     roc_aucs = []
-    for train_index, test_index in StratifiedKFold.split(X, y):
+    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    for train_index, test_index in skf.split(X, y):
         X_train, X_test = X.iloc[train_index], X.iloc[test_index]
         y_train, y_test = y.iloc[train_index], y.iloc[test_index]
         
