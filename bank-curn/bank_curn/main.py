@@ -34,33 +34,35 @@ dropped_test["MiddleAge"] = dropped_test["Age"].apply(lambda x: 1 if 45 <= x <= 
 
 X = dropped_train.drop("Exited", axis=1)
 y = dropped_train["Exited"]
+print(dropped_train.head())
+
+print(X.head())
+print(y.head())
+
+print(y.value_counts())
 
 def objective(trial):
-    learning_rate = trial.suggest_float("learning_rate", 1e-3, 1e-1, log=True)
-    n_estimators = trial.suggest_int("n_estimators", 100, 1000)
-    max_depth = trial.suggest_int("max_depth", 1, 10)
-    subsample = trial.suggest_float("subsample", 0.5, 1.0)
-    colsample_bytree = trial.suggest_float("colsample_bytree", 0.5, 1.0)
-    min_child_weight = trial.suggest_int("min_child_weight", 1, 10)
-    gamma = trial.suggest_float("gamma", 0, 5)
+    params = {
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
+        'min_child_weight': trial.suggest_int('min_child_weight', 2, 8),
+        'max_depth': trial.suggest_int('max_depth', 1, 4),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.2, 1.0),
+        'subsample': trial.suggest_float('subsample', 0.2, 1.0),
+        'reg_alpha': trial.suggest_float('reg_alpha', 0.001, 0.1, log=True),
+        'reg_lambda': trial.suggest_float('reg_lambda', 0.001, 0.1, log=True),
+        'gamma': trial.suggest_float('gamma', 0.0001, 0.1, log=True),
+    }
 
     bst = XGBClassifier(
-        n_estimators=n_estimators,
-        max_depth=max_depth,
-        learning_rate=learning_rate,
-        subsample=subsample,
-        colsample_bytree=colsample_bytree,
-        min_child_weight=min_child_weight,
-        gamma=gamma,
-        objective='binary:logistic',
-        eval_metric="logloss"
+        **params,
+        eval_metric="auc",
     )
 
     roc_aucs = []
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    for train_index, test_index in skf.split(X, y):
-        X_train, X_test = X.iloc[train_index], X.iloc[test_index]
-        y_train, y_test = y.iloc[train_index], y.iloc[test_index]
+    for train_index, valid_index in skf.split(X, y):
+        X_train, X_test = X.iloc[train_index], X.iloc[valid_index]
+        y_train, y_test = y.iloc[train_index], y.iloc[valid_index]
         
         bst.fit(X_train, y_train)
         preds = bst.predict_proba(X_test)[:, 1]
@@ -69,23 +71,27 @@ def objective(trial):
     return np.mean(roc_aucs)
 
 study = optuna.create_study(direction="maximize")
-study.optimize(objective, n_trials=100)
+study.optimize(objective, n_trials=150)
 
 best_params = study.best_trial.params
 best_model = XGBClassifier(
-    n_estimators=best_params["n_estimators"],
-    max_depth=best_params["max_depth"],
-    learning_rate=best_params["learning_rate"],
-    subsample=best_params["subsample"],
-    colsample_bytree=best_params["colsample_bytree"],
-    min_child_weight=best_params["min_child_weight"],
-    gamma=best_params["gamma"],
-    objective='binary:logistic',
-    eval_metric="logloss"
+    **best_params,
+    eval_metric="auc"
 )
 
-best_model.fit(X, y)
-predictions = best_model.predict_proba(dropped_test)[:, 1]
+skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+private_roc_auc = []
+for train_index, test_index in skf.split(X, y):
+    X_train, X_test = X.iloc[train_index], X.iloc[test_index]
+    y_train, y_test = y.iloc[train_index], y.iloc[test_index]
+    best_model.predict = lambda X: best_model.predict_proba(X)[:, 1]
+    best_model.fit(X_train, y_train)
+    preds = best_model.predict_proba(X_test)[:, 1]
+    private_roc_auc.append(roc_auc_score(y_test, preds))
 
-submission = pd.DataFrame({'Exited': predictions})
+print(np.mean(private_roc_auc))
+
+predictions = best_model.predict(dropped_test)
+submission = pd.DataFrame({'id': testdf['id'], 'Exited': predictions})
+
 submission.to_csv("submission.csv", index=False)
